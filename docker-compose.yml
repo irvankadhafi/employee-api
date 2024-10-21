@@ -1,0 +1,51 @@
+version: '3.8'
+
+volumes:
+  api: {}
+  postgres_db: {}
+  redis_db: {}
+
+networks:
+  employee_service:
+    driver: bridge
+
+services:
+  app:
+    container_name: full_app
+    build: .
+    ports:
+      - 4000:4000
+    restart: on-failure
+    volumes:
+      - "api:/usr/src/app/"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - employee_service
+
+  postgres:
+    image: postgres:15
+    container_name: db_postgres
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=employees_db
+    ports:
+      - '15432:5432'
+    volumes:
+      - "postgres_db:/var/lib/postgresql/data"
+    networks:
+      - employee_service
+
+
+  redis:
+    image: redis:5.0
+    networks:
+      - employee_service
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - "16379:6379"
+    volumes:
+      - "redis_db:/data"

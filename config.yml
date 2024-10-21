@@ -1,0 +1,26 @@
+env: "development"
+log_level: "debug"
+ports:
+  http: "8080"
+postgres:
+  host: "localhost:15432"
+  database: "employees_db"
+  username: "user"
+  password: "password"
+  sslmode: "disable"
+  max_idle_conns: 50
+  conn_max_lifetime: "1h"
+  ping_interval: "5000ms"
+  retry_attempts: 3
+  timeout: 120
+  timezone: "Asia/Jakarta"
+disable_caching: false
+cache_ttl: "15m"
+redis:
+  cache_host: "redis://localhost:16379/4"
+  lock_host: "redis://localhost:16379/5"
+  dial_timeout: 5
+  write_timeout: 2
+  read_timeout: 2
+  max_idle_conn: 20
+  max_active_conn: 50
