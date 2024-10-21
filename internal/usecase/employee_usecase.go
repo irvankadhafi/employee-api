@@ -60,16 +60,6 @@ func (e *employeeUsecase) FindByID(ctx context.Context, id int64) (employee *mod
 	return employee, nil
 }
 
-func (e *employeeUsecase) FindByIDs(ctx context.Context, employeeIDs []int64) (employees []*model.Employee, err error) {
-	employees = e.FindAllByIDs(ctx, employeeIDs)
-
-	if employees == nil {
-		return nil, ErrNotFound
-	}
-
-	return employees, nil
-}
-
 func (e *employeeUsecase) Update(ctx context.Context, employeeID int64, input model.UpdateEmployeeRequest) (employee *model.Employee, err error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"ctx":        utils.DumpIncomingContext(ctx),
@@ -119,7 +109,44 @@ func (e *employeeUsecase) DeleteByID(ctx context.Context, employeeID int64) (err
 	return nil
 }
 
-func (e *employeeUsecase) SearchByPage(ctx context.Context, searchCriteria model.EmployeeSearchCriteria) (ids []int64, count int64, err error) {
+func (e *employeeUsecase) SearchByCriteria(ctx context.Context, searchCriteria model.EmployeeSearchCriteria) (employees []*model.Employee, count int64, err error) {
+	logger := logrus.WithFields(logrus.Fields{
+		"ctx":            utils.DumpIncomingContext(ctx),
+		"searchCriteria": utils.Dump(searchCriteria),
+	})
+
+	ids, count, err := e.searchByPage(ctx, searchCriteria)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+
+	employees = e.findAllByIDs(ctx, ids)
+	if len(employees) <= 0 {
+		logger.Error(ErrNotFound)
+		return
+	}
+
+	return employees, count, nil
+}
+
+func (e *employeeUsecase) GetDistinctPositions(ctx context.Context) ([]string, error) {
+	positions, err := e.employeeRepository.GetDistinctPositions(ctx)
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+
+	if len(positions) <= 0 {
+		err = ErrNotFound
+		logrus.Error(err)
+		return nil, err
+	}
+
+	return positions, nil
+}
+
+func (e *employeeUsecase) searchByPage(ctx context.Context, searchCriteria model.EmployeeSearchCriteria) (ids []int64, count int64, err error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"ctx":            utils.DumpIncomingContext(ctx),
 		"searchCriteria": utils.Dump(searchCriteria),
@@ -139,68 +166,7 @@ func (e *employeeUsecase) SearchByPage(ctx context.Context, searchCriteria model
 	return ids, count, nil
 }
 
-func (e *employeeUsecase) SearchByCriteria(ctx context.Context, searchCriteria model.EmployeeSearchCriteria) (employees []*model.Employee, count int64, err error) {
-	logger := logrus.WithFields(logrus.Fields{
-		"ctx":            utils.DumpIncomingContext(ctx),
-		"searchCriteria": utils.Dump(searchCriteria),
-	})
-
-	ids, count, err := e.SearchByPage(ctx, searchCriteria)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-
-	employees = e.FindAllByIDs(ctx, ids)
-	if len(employees) <= 0 {
-		logger.Error(ErrNotFound)
-		return
-	}
-
-	return employees, count, nil
-}
-
-func (e *employeeUsecase) FindIDsByQuery(ctx context.Context, query string) (ids []int64, count int64, err error) {
-	logger := logrus.WithFields(logrus.Fields{
-		"ctx":   utils.DumpIncomingContext(ctx),
-		"query": query,
-	})
-
-	var cursorAfter int64
-	limitSize := int64(100)
-
-	var allIDs []int64
-
-	for {
-		ids, err := e.employeeRepository.FindAllByQuery(ctx, query, limitSize, cursorAfter)
-		if err != nil {
-			logger.Error(err)
-			return nil, 0, err
-		}
-
-		if len(ids) == 0 {
-			break
-		}
-
-		allIDs = append(allIDs, ids...)
-
-		cursorAfter = ids[len(ids)-1]
-
-		if len(ids) < int(limitSize) {
-			logger.Info("last batch")
-			break
-		}
-	}
-
-	if len(allIDs) == 0 {
-		return nil, 0, nil
-	}
-
-	count = int64(len(allIDs))
-	return allIDs, count, nil
-}
-
-func (e *employeeUsecase) FindAllByIDs(ctx context.Context, ids []int64) (employees []*model.Employee) {
+func (e *employeeUsecase) findAllByIDs(ctx context.Context, ids []int64) (employees []*model.Employee) {
 	logger := logrus.WithFields(logrus.Fields{
 		"ctx": utils.DumpIncomingContext(ctx),
 		"ids": ids,
@@ -229,9 +195,9 @@ func (e *employeeUsecase) FindAllByIDs(ctx context.Context, ids []int64) (employ
 	}
 
 	rs := map[int64]*model.Employee{}
-	for product := range c {
-		if product != nil {
-			rs[product.ID] = product
+	for employee := range c {
+		if employee != nil {
+			rs[employee.ID] = employee
 		}
 	}
 

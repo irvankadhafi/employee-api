@@ -19,7 +19,7 @@ func (s *service) Create() echo.HandlerFunc {
 			return ErrInvalidArgument
 		}
 
-		createdProduct, err := s.employeeUsecase.Create(ctx, req)
+		newEmployee, err := s.employeeUsecase.Create(ctx, req)
 		switch err {
 		case nil:
 			break
@@ -30,19 +30,19 @@ func (s *service) Create() echo.HandlerFunc {
 			return ErrInternal
 		}
 
-		return c.JSON(http.StatusCreated, setSuccessResponse(createdProduct))
+		return c.JSON(http.StatusCreated, setSuccessResponse(newEmployee))
 	}
 }
 
 func (s *service) GetDetail() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
-		productID := utils.StringToInt64(c.Param("employee_id"))
+		employeeID := utils.StringToInt64(c.Param("employee_id"))
 		logger := logrus.WithContext(ctx).WithFields(logrus.Fields{
-			"employee_id": productID,
+			"employee_id": employeeID,
 		})
 
-		product, err := s.employeeUsecase.FindByID(ctx, productID)
+		employee, err := s.employeeUsecase.FindByID(ctx, employeeID)
 		if err != nil {
 			logger.Error(err)
 			return ErrInternal
@@ -60,15 +60,15 @@ func (s *service) GetDetail() echo.HandlerFunc {
 			return ErrInternal
 		}
 
-		return c.JSON(http.StatusOK, setSuccessResponse(product))
+		return c.JSON(http.StatusOK, setSuccessResponse(employee))
 	}
 }
 
-func (s *service) GetList() echo.HandlerFunc {
+func (s *service) SearchEmployees() echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 
-		// Parse query parameters with default values
+		// Parse name parameters with default values
 		page, err := parseQueryParam(c, "page", 1)
 		if err != nil {
 			logrus.WithError(err).Error("failed to parse page")
@@ -81,17 +81,14 @@ func (s *service) GetList() echo.HandlerFunc {
 			return ErrInvalidArgument
 		}
 
-		query := c.QueryParam("query")
-		dir := c.QueryParam("dir")
-		sort := c.QueryParam("sort")
-
 		// Define search criteria
 		searchCriteria := model.EmployeeSearchCriteria{
-			Query:   query,
-			Page:    int64(page),
-			Size:    int64(limit),
-			SortBy:  sort,
-			SortDir: dir,
+			Name:     c.QueryParam("name"),
+			Position: c.QueryParam("position"),
+			Page:     int64(page),
+			Size:     int64(limit),
+			SortBy:   c.QueryParam("sort"),
+			SortDir:  c.QueryParam("dir"),
 		}
 
 		employees, count, err := s.employeeUsecase.SearchByCriteria(ctx, searchCriteria)
@@ -149,5 +146,18 @@ func (s *service) Delete() echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, setSuccessResponse(employeeID))
+	}
+}
+
+func (s *service) GetDistinctPositions() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx := c.Request().Context()
+
+		positions, err := s.employeeUsecase.GetDistinctPositions(ctx)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, err)
+		}
+
+		return c.JSON(http.StatusOK, positions)
 	}
 }

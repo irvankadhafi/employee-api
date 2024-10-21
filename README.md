@@ -3,11 +3,17 @@
 ## Table of Contents
 * [Design Architecture](#design-architecture)
 * [Project Structure](#project-structure)
-* [List API Endpoint](#list-api-endpoint)
-* [Tech Stack](#tech-stack)
+* [List API Endpoints](#list-api-endpoints)
+* [Request Body Example for Employee Creation](#request-body-example-for-employee-creation)
+* [Query Parameters for Employee Search](#query-parameters-for-employee-search)
+* [Response Example for Employee Search](#response-example-for-employee-search)
 * [How To Run This Project](#how-to-run-this-project)
-    * [Run the Applications on Local Machine](#run-the-applications-on-local-machine)
-    * [Run the Applications With Docker](#run-the-applications-with-docker)
+  * [Run the Testing](#run-the-testing)
+  * [Run the Applications on Local Machine](#run-the-applications-on-local-machine)
+  * [Run the Applications With Docker](#run-the-applications-with-docker)
+* [Steps for using create_indonesian_employees.sh](#steps-for-using-create_indonesian_employees.sh)
+* [Tech Stack](#tech-stack)
+* [Unit Testing](#unit-testing)
 
 ## Design Architecture
 The concept of Clean Architecture is used in this service, which means that each component is not dependent on the framework or database used (independent). The service also applies the SOLID and DRY concepts.
@@ -76,6 +82,65 @@ Overall, using Clean Architecture in building a service can help me to create mo
 |   # file used by the `make` command
 └── ...
 ```
+
+## List API Endpoints
+
+| Method | Endpoint             | Description                                       | Request Body/Query Params                                                                       | Response Example                                                                                                                    |
+|--------|----------------------|---------------------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| POST   | `/api/employees`     | Create a new employee                             | `{ "name": "John Doe", "position": "Software Engineer", "salary": 15000000 }`                   | `{ "id": 1, "name": "John Doe", "position": "Software Engineer", "salary": 15000000, "created_at": "2024-10-20T09:00:00Z" }`        |
+| GET    | `/api/employees`     | Search employees by name/position with pagination | `/api/employees?name=John&position=Software%20Engineer&page=1&limit=10&sort=created_at&dir=asc` | `{ "page": 1, "limit": 10, "count": 2, "employees": [ { "id": 1, "name": "John Doe", "position": "Software Engineer", ... }] }`     |
+| GET    | `/api/employees/:id` | Get an employee by ID                             | `/api/employees/1`                                                                              | `{ "id": 1, "name": "John Doe", "position": "Software Engineer", "salary": 15000000, "created_at": "2024-10-20T09:00:00Z" }`        |
+| PUT    | `/api/employees/:id` | Update an employee by ID                          | `{ "name": "John Doe Updated", "position": "Backend Engineer", "salary": 18000000 }`            | `{ "id": 1, "name": "John Doe Updated", "position": "Backend Engineer", "salary": 18000000, "updated_at": "2024-10-21T09:00:00Z" }` |
+| DELETE | `/api/employees/:id` | Delete an employee by ID                          | `/api/employees/1`                                                                              | `{ "message": "Employee deleted successfully", "id": 1 }`                                                                           |
+| GET    | `/api/positions`     | Get a list of distinct employee positions         | `/api/positions`                                                                                | `["Software Engineer", "Backend Engineer", "Product Manager"]`                                                                      |
+
+### Request Body Example for Employee Creation
+
+```json
+{
+  "name": "Irvan Kadhafi",
+  "position": "Software Engineer",
+  "salary": 15000000
+}
+```
+
+### Query Parameters for Employee Search
+
+- `name`: (Optional) Search employees by name.
+- `position`: (Optional) Filter employees by position.
+- `page`: (Optional) Pagination page number.
+- `limit`: (Optional) Number of results per page.
+- `sort`: (Optional) Field to sort by, default is `created_at`.
+- `dir`: (Optional) Sort direction (`asc` or `desc`).
+
+### Response Example for Employee Search
+
+```json
+{
+  "page": 1,
+  "limit": 10,
+  "count": 2,
+  "employees": [
+    {
+      "id": 1,
+      "name": "John Doe",
+      "position": "Software Engineer",
+      "salary": 15000000,
+      "created_at": "2024-10-20T09:00:00Z",
+      "updated_at": "2024-10-21T09:00:00Z"
+    },
+    {
+      "id": 2,
+      "name": "Jane Doe",
+      "position": "Backend Engineer",
+      "salary": 16000000,
+      "created_at": "2024-10-19T09:00:00Z",
+      "updated_at": "2024-10-20T09:00:00Z"
+    }
+  ]
+}
+```
+
 ## How To Run This Project
 
 > Make sure you have set up a database and have run the command `make migrate` to perform the necessary database migrations before running the application.
@@ -103,9 +168,28 @@ $ cd employee-api
 $ make docker
 ```
 
+### Steps for using `create_indonesian_employees.sh`
+1.**Make the Script Executable**:
+   ```bash
+   chmod +x create_indonesian_employees.sh
+   ```
+2.**Run the Script**:
+   ```bash
+   ./create_indonesian_employees.sh
+   ```
+
 ## Tech Stack
 - Go 1.22.5
 - Echo
 - PostgreSQL
 - GORM
 - Redis
+
+## Unit Testing
+
+> Unit tests are crucial to ensure the reliability of the application. The unit tests for each layer are being implemented, focusing on validating the business logic (use cases) and repository functions.
+
+- **TODO**:
+  - Unit tests for the Use Case layer
+  - Unit tests for the Repository layer
+  - Integration tests for the API layer

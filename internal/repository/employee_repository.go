@@ -147,27 +147,40 @@ func (e *employeeRepository) SearchByPage(ctx context.Context, searchCriteria mo
 	}
 }
 
-func (e *employeeRepository) FindAllByQuery(ctx context.Context, query string, size, cursorAfter int64) (ids []int64, err error) {
-	err = e.db.WithContext(ctx).
+func (e *employeeRepository) findAllIDsByCriteria(ctx context.Context, criteria model.EmployeeSearchCriteria) ([]int64, error) {
+	var scopes []func(*gorm.DB) *gorm.DB
+	scopes = append(scopes, scopeByPageAndLimit(criteria.Page, criteria.Size))
+
+	// Add LIKE query for name if provided
+	if criteria.Name != "" {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("name ILIKE ?", "%"+criteria.Name+"%")
+		})
+	}
+
+	// Add filter for position if provided
+	if criteria.Position != "" {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("position = ?", criteria.Position)
+		})
+	}
+
+	var ids []int64
+	err := e.db.WithContext(ctx).
 		Model(model.Employee{}).
-		Scopes(e.scopeByProductNameAndDescription(query), withSize(size)).
-		Where("id > ?", cursorAfter).
-		Order("id ASC").
+		Scopes(scopes...).
+		Order(fmt.Sprintf("%s %s", criteria.SortBy, criteria.SortDir)).
 		Pluck("id", &ids).Error
-	switch err {
-	case nil:
-		return ids, nil
-	case gorm.ErrRecordNotFound:
-		return nil, nil
-	default:
+
+	if err != nil {
 		logrus.WithFields(logrus.Fields{
-			"ctx":         utils.DumpIncomingContext(ctx),
-			"query":       query,
-			"size":        size,
-			"cursorAfter": cursorAfter,
+			"ctx":      utils.DumpIncomingContext(ctx),
+			"criteria": utils.Dump(criteria),
 		}).Error(err)
 		return nil, err
 	}
+
+	return ids, nil
 }
 
 func (e *employeeRepository) Create(ctx context.Context, employee *model.Employee) error {
@@ -185,11 +198,36 @@ func (e *employeeRepository) Create(ctx context.Context, employee *model.Employe
 	return nil
 }
 
+func (e *employeeRepository) GetDistinctPositions(ctx context.Context) ([]string, error) {
+	var positions []string
+	err := e.db.WithContext(ctx).Debug().
+		Model(&model.Employee{}).
+		Select("DISTINCT position").
+		Pluck("position", &positions).Error
+
+	if err != nil {
+		logrus.WithContext(ctx).Error(err)
+		return nil, err
+	}
+
+	return positions, nil
+}
+
 func (e *employeeRepository) countAll(ctx context.Context, criteria model.EmployeeSearchCriteria) (int64, error) {
 	var scopes []func(*gorm.DB) *gorm.DB
 
-	if criteria.Query != "" {
-		scopes = append(scopes, e.scopeByProductNameAndDescription(criteria.Query))
+	// Add LIKE query for name if provided
+	if criteria.Name != "" {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("name ILIKE ?", "%"+criteria.Name+"%")
+		})
+	}
+
+	// Add filter for position if provided
+	if criteria.Position != "" {
+		scopes = append(scopes, func(db *gorm.DB) *gorm.DB {
+			return db.Where("position = ?", criteria.Position)
+		})
 	}
 
 	var count int64
@@ -208,44 +246,6 @@ func (e *employeeRepository) countAll(ctx context.Context, criteria model.Employ
 	return count, nil
 }
 
-func (e *employeeRepository) scopeByProductName(query string) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("name ILIKE ?", "%"+query+"%")
-	}
-}
-
-func (e *employeeRepository) scopeByProductNameAndDescription(query string) func(db *gorm.DB) *gorm.DB {
-	return func(db *gorm.DB) *gorm.DB {
-		return db.Where("name ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%")
-	}
-}
-
 func (e *employeeRepository) newCacheKeyByID(id int64) string {
 	return fmt.Sprintf("cache:object:employee:id:%d", id)
-}
-
-func (e *employeeRepository) findAllIDsByCriteria(ctx context.Context, criteria model.EmployeeSearchCriteria) ([]int64, error) {
-	var scopes []func(*gorm.DB) *gorm.DB
-	scopes = append(scopes, scopeByPageAndLimit(criteria.Page, criteria.Size))
-
-	if criteria.Query != "" {
-		scopes = append(scopes, e.scopeByProductNameAndDescription(criteria.Query))
-	}
-
-	var ids []int64
-	err := e.db.WithContext(ctx).
-		Model(model.Employee{}).
-		Scopes(scopes...).
-		Order(fmt.Sprintf("%s %s", criteria.SortBy, criteria.SortDir)).
-		Pluck("id", &ids).Debug().Error
-
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"ctx":      utils.DumpIncomingContext(ctx),
-			"criteria": utils.Dump(criteria),
-		}).Error(err)
-		return nil, err
-	}
-
-	return ids, nil
 }

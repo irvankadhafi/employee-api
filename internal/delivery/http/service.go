@@ -23,11 +23,13 @@ func RouteService(
 }
 
 func (s *service) initRoutes(group *echo.Group) {
+	group.GET("/positions/", s.GetDistinctPositions())
+
 	employeeRoute := group.Group("/employees")
 	{
 		employeeRoute.POST("/", s.Create())
 		employeeRoute.GET("/:employee_id/", s.GetDetail())
-		employeeRoute.GET("/", s.GetList())
+		employeeRoute.GET("/", s.SearchEmployees())
 		employeeRoute.PUT("/:employee_id/", s.Update())
 		employeeRoute.DELETE("/:employee_id/", s.Delete())
 	}

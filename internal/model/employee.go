@@ -9,13 +9,10 @@ import (
 type EmployeeUsecase interface {
 	Create(ctx context.Context, input CreateEmployeeRequest) (employee *Employee, err error)
 	FindByID(ctx context.Context, id int64) (employee *Employee, err error)
-	FindByIDs(ctx context.Context, employeeIDs []int64) (employees []*Employee, err error)
 	Update(ctx context.Context, employeeID int64, input UpdateEmployeeRequest) (employee *Employee, err error)
 	DeleteByID(ctx context.Context, employeeID int64) (err error)
-	SearchByPage(ctx context.Context, searchCriteria EmployeeSearchCriteria) (ids []int64, count int64, err error)
 	SearchByCriteria(ctx context.Context, searchCriteria EmployeeSearchCriteria) (employees []*Employee, count int64, err error)
-	FindIDsByQuery(ctx context.Context, query string) (ids []int64, count int64, err error)
-	FindAllByIDs(ctx context.Context, ids []int64) (employees []*Employee)
+	GetDistinctPositions(ctx context.Context) ([]string, error)
 }
 
 type EmployeeRepository interface {
@@ -24,7 +21,7 @@ type EmployeeRepository interface {
 	Update(ctx context.Context, employee *Employee) (err error)
 	Delete(ctx context.Context, id int64) error
 	SearchByPage(ctx context.Context, searchCriteria EmployeeSearchCriteria) (ids []int64, count int64, err error)
-	FindAllByQuery(ctx context.Context, query string, size, cursorAfter int64) (ids []int64, err error)
+	GetDistinctPositions(ctx context.Context) ([]string, error)
 }
 
 // Employee :nodoc:
@@ -62,11 +59,12 @@ func (c *UpdateEmployeeRequest) Validate() error {
 
 // EmployeeSearchCriteria :nodoc:
 type EmployeeSearchCriteria struct {
-	Query   string `json:"query"`
-	Page    int64  `json:"page"`
-	Size    int64  `json:"size"`
-	SortBy  string `json:"sort_by"`
-	SortDir string `json:"sort_dir"`
+	Name     string `json:"name"`
+	Position string `json:"position"`
+	Page     int64  `json:"page"`
+	Size     int64  `json:"size"`
+	SortBy   string `json:"sort_by"`
+	SortDir  string `json:"sort_dir"`
 }
 
 // SetDefaultValue will set default value for page and size if zero
